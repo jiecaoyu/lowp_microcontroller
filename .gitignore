@@ -7,3 +7,5 @@ mbed*
 *.map
 *.d
 *.o
+
+*.pyc

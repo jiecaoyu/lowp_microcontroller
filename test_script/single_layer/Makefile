@@ -33,7 +33,7 @@ endif
 
 
 CPU = -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=$(FLOAT_ABI) 
-CC_FLAGS = $(CPU) -c -g -fno-common -fmessage-length=0 -Wall -Wextra -fno-exceptions -ffunction-sections -fdata-sections -fomit-frame-pointer -MMD -MP -I${INCLUDE_DIR}
+CC_FLAGS = $(CPU) -c -g -fno-common -fmessage-length=0 -Wall -Wextra -fno-exceptions -ffunction-sections -fdata-sections -fomit-frame-pointer -MMD -MP -I${INCLUDE_DIR} ${EXTRA_FLAG}
 CC_SYMBOLS = -DTARGET_RTOS_M4_M7 -DTARGET_FF_ARDUINO -DTOOLCHAIN_GCC_ARM -DTOOLCHAIN_GCC -DTARGET_STM32F411RE -DTARGET_FF_MORPHO -DTARGET_LIKE_MBED -DTARGET_CORTEX_M -DMBED_BUILD_TIMESTAMP=1458851146.92 -D__FPU_PRESENT=1 -DTARGET_LIKE_CORTEX_M4 -DTARGET_NUCLEO_F411RE -DTARGET_M4 -D__MBED__=1 -DTARGET_STM -DTARGET_STM32F4 -D__CORTEX_M4 -DARM_MATH_CM4 
 
 LD_FLAGS = $(CPU) -Wl,--gc-sections --specs=nano.specs -u _printf_float -u _scanf_float -Wl,--wrap,main -Wl,-Map=$(PROJECT).map,--cref
@@ -52,7 +52,7 @@ all: $(PROJECT).bin $(PROJECT).hex size
 
 
 clean:
-	rm -f $(PROJECT).bin $(PROJECT).elf $(PROJECT).hex $(PROJECT).map $(PROJECT).lst $(OBJECTS) $(DEPS)
+	rm -f $(PROJECT).bin $(PROJECT).elf $(PROJECT).hex $(PROJECT).map $(PROJECT).lst $(OBJECTS) $(DEPS) *.pyc
 
 
 .asm.o:

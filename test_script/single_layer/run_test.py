@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import numpy
 import argparse
 import subprocess
+import write
 
 def BuildOptions():
     # build options
@@ -37,51 +38,98 @@ def Quantize(data, bits):
 def BuildInput(input_bits, input_size, input_channels):
     print('==> Build Inputs')
     input_v = numpy.random.rand(input_channels, input_size, input_size)
-    input_v = Quantize(input_v, input_bits)
+    input_v = Quantize(input_v, min(input_bits, 8))
     return input_v
 
 def BuildKernel(weight_bits, kernel_size, input_channels, output_channels):
     print('==> Build Kernels')
     kernel_v = numpy.random.rand(output_channels, input_channels,
             kernel_size, kernel_size)
-    kernel_v = Quantize(kernel_v, weight_bits)
+    kernel_v = Quantize(kernel_v, min(weight_bits, 8))
     return kernel_v
 
-def DefaultConv(input_v, kernel_v, padding, step, zero_bias, input_bits):
+def DefaultConv(input_v, step_i, bias_i,
+        kernel_v, step_k, bias_k,
+        padding, input_bits):
     output_size = input_v.shape[1] + padding * 2 - kernel_v.shape[2] + 1
     output_channels = kernel_v.shape[0]
-    output_v = numpy.zeros([output_channels, output_size, output_size]).astype(int)
+    output = numpy.zeros([output_channels, output_size, output_size])
     # add padding
-    input_v = numpy.pad(input_v, ((0,0), (1,1), (1,1)), 'constant')
+    constant = int(-bias_i/step_i)
+    input_v = numpy.pad(input_v, ((0,0), (1,1), (1,1)),
+            'constant', constant_values=constant)
+    input = input_v * step_i + bias_i
+
     kernel_v = kernel_v.reshape(kernel_v.shape[0], -1)
-    for i in range(output_v.shape[1]):
-        for j in range(output_v.shape[2]):
-            tmp_input_window = input_v[:, i:i+3, j:j+3]
+    kernel = kernel_v * step_k.reshape(step_k.size, 1) + bias_k.reshape(bias_k.size, 1)
+    for i in range(output.shape[1]):
+        for j in range(output.shape[2]):
+            tmp_input_window = input[:, i:i+3, j:j+3]
             tmp_input_window = tmp_input_window.reshape(-1, 1)
-            tmp_output = numpy.matmul(kernel_v, tmp_input_window)
-            output_v[:,i,j] = tmp_output.flatten()
-    output_v = (output_v - zero_bias) / step
+            tmp_output = numpy.matmul(kernel, tmp_input_window)
+            output[:,i,j] = tmp_output.flatten()
+    output_bits = min(input_bits, 8)
+    step_o = numpy.abs(output).max() * 0.7 / (2.**(output_bits - 1))
+    bias_o = numpy.mean(output)
+    output_v = (output - bias_o) / step_o
     output_v = output_v.astype(int)
-    upper_bound = 2 ** (input_bits - 1) - 1
-    lower_bound = - 2 ** (input_bits - 1)
+    upper_bound = 2 ** (output_bits - 1) - 1
+    lower_bound = - 2 ** (output_bits - 1)
     output_v[output_v > upper_bound] = upper_bound
     output_v[output_v < lower_bound] = lower_bound
-    return output_v
+    return output, step_o, bias_o
 
 if __name__=='__main__':
     args = BuildOptions()
+    numpy.random.seed(0)
+
+    if not ((args.input_bits == 16) and (args.weight_bits == 16)):
+        raise Exception ("Precision configuration not supported.")
+
+    # generate input_v and kernel_v
+    ## input = input_v * step_i - bias_i
     input_v = BuildInput(args.input_bits, args.input_size, args.input_channels)
+    step_i = numpy.random.rand()
+    bias_i = (numpy.random.rand() - 0.5) * 10.
+    ## kernel[i] = kernel_v[i] * step_v[i] - bias_i[i]
     kernel_v = BuildKernel(args.weight_bits, args.kernel_size,
             args.input_channels, args.output_channels)
-    shift = numpy.floor(numpy.log(kernel_v[0].size * args.weight_bits * 0.1)
-            / numpy.log(2.0))
-    step = 2 ** shift + 1 # some random step :)
-    zero_bias = int(numpy.random.rand() * (2.0 ** args.input_bits) - \
-            (2.0 ** (args.input_bits - 1)))
-    output_v = DefaultConv(input_v, kernel_v, args.padding,
-            step, zero_bias, args.input_bits)
+    step_k = numpy.random.rand(args.output_channels)
+    bias_k = (numpy.random.rand(args.output_channels) - 0.5) * 10.
+    output_v, step_o, bias_o = DefaultConv(
+            input_v, step_i, bias_i,
+            kernel_v, step_k, bias_k,
+            args.padding, args.input_bits)
 
+    # write the data into data.h
+    fp = open('data.h', 'w')
+    ## write the settings
+    for arg in vars(args):
+        value = getattr(args, arg)
+        if (type(value) == int):
+            fp.write('const int {} = {};\n'.format(arg, getattr(args, arg)))
+
+    ## write input
+    input_str = write.InputData2Str(input_v, args.input_bits, step_i, bias_i)
+    fp.write(input_str)
+
+    ## write kernel
+    kernel_str = write.KernelData2Str(kernel_v, args.weight_bits, step_k, bias_k)
+    fp.write(kernel_str)
+
+    ## write output
+    fp.write('const float step_o = {};\n'.format(step_o))
+    fp.write('const float bias_o = {};\n'.format(bias_o))
+
+    fp.close()
+
+    ## set the flag
+    EXTRA_FLAG = ''
+    if ((args.input_bits == 16) and (args.weight_bits == 16)):
+        EXTRA_FLAG += '\" -DQ15_Q15\"'
     # run command
 
-    subprocess.call('make', shell=True)
+    exit(0)
+    subprocess.call('make EXTRA_FLAG={}'.format(EXTRA_FLAG), shell=True)
+    exit(0)
     subprocess.call('cp test_perf.bin /media/jiecaoyu/NODE_F411RE/', shell=True)
