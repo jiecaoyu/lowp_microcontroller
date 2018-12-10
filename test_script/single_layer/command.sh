@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-    weight_bits=16
-     input_bits=16
+    weight_bits=2
+     input_bits=4
         padding=1
      input_size=16
 output_channels=32
