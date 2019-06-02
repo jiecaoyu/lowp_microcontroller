@@ -237,7 +237,7 @@ void Conv2d_q3_q1_opt(
                 if (cache_index == 1) {
                     cache_ptr = cache_2;
                 }
-                if (y == 0) {
+                if (y == 0 || kernel_size == 1) {
                     for (size_t s = 0; s < kernel_size; ++s) {
                         const int x_i = x + s - padding + cache_index;
                         if ((x_i < 0) || (x_i >= (int)input_size)) {
