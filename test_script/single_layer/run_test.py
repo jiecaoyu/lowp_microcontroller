@@ -153,5 +153,4 @@ if __name__=='__main__':
 
     subprocess.call('make EXTRA_FLAG={} EXTRA_OBJECTS={}'.format(
         EXTRA_FLAG, EXTRA_OBJECTS), shell=True)
-    exit(0)
     subprocess.call('cp test_perf.bin /media/jiecaoyu/NODE_F411RE/', shell=True)

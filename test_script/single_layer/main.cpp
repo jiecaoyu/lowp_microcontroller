@@ -10,7 +10,7 @@
 
 #include "arm_math.h"
 
-#include <time.h>
+#include "frequency_config.hpp"
 
 extern "C" {
 #include "lowp_micro.h"
@@ -19,6 +19,7 @@ extern "C" {
 }
 
 int main() {
+    // change_frequency();
     PerfProbe *perfref = CreatePerfProbe("ref");
     EnableProfiling();
 
