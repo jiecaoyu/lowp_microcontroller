@@ -25,6 +25,7 @@ int main() {
 
     printf("\n\r==========================================\n\r");
     printf("==> Testing computation for a single layer\n\r");
+    printf("----> Using Xilinx    = %d\n\r", xilinx_dsp     );
     printf("----> weight_bits     = %d\n\r", weight_bits    );
     printf("----> input_bits      = %d\n\r", input_bits     );
     printf("----> padding         = %d\n\r", padding        );
@@ -60,13 +61,24 @@ int main() {
     // PrintInputFM_q3(input_sram, input_channels, input_size);
     // PrintKernel_q1((q7_t*)kernel_v, input_channels, output_channels, kernel_size);
     ResetPerfData(perfref);
-    Conv2d_q3_q1_opt(
-            (q7_t*)input_sram, step_i, minv_i,
-            (q7_t*)kernel_v, step_k, minv_k,
-            (q7_t*) output_sram, step_o, minv_o,
-            input_channels, input_size, padding, output_channels, kernel_size,
-            step_k_K
-            );
+    if (xilinx_dsp == 0) {
+        Conv2d_q3_q1_opt(
+                (q7_t*)input_sram, step_i, minv_i,
+                (q7_t*)kernel_v, step_k, minv_k,
+                (q7_t*) output_sram, step_o, minv_o,
+                input_channels, input_size, padding, output_channels, kernel_size,
+                step_k_K
+                );
+    }
+    else {
+        Conv2d_q3_q1_xilinx(
+                (q7_t*)input_sram, step_i, minv_i,
+                (q7_t*)kernel_v, step_k, minv_k,
+                (q7_t*) output_sram, step_o, minv_o,
+                input_channels, input_size, padding, output_channels, kernel_size,
+                step_k_K
+                );
+    }
     OnePerfData(perfref);
     printf("==> Conv2d 4I x 2W: %lu\n\r", perfref->cyccnt);
     // PrintInputFM_q3(output_sram, output_channels, output_size);

@@ -15,3 +15,4 @@ const float step_k_K[32] = {316.540172962,67.8291500239,258.692098576,48.4186680
 const float step_o = 418.377660033;
 const float minv_o = -2927.35299783;
 const int key_ref = 12482;
+const bool xilinx_dsp = 0;

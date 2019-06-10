@@ -23,6 +23,8 @@ def BuildOptions():
             help='kernel size')
     parser.add_argument('--padding', action='store', type=int, default=1,
             help='padding')
+    parser.add_argument('--xilinx', action='store_true', default=False,
+            help='using xilinx DSP algorithm')
     args = parser.parse_args()
     for arg in vars(args):
         print('----> {:15s} = {}'.format(arg, getattr(args, arg)))
@@ -122,7 +124,7 @@ if __name__=='__main__':
     fp.write(input_str)
 
     ## write kernel
-    kernel_str = write.KernelData2Str(kernel_v, args.weight_bits, step_k, bias_k)
+    kernel_str = write.KernelData2Str(kernel_v, args.weight_bits, step_k, bias_k, args.xilinx)
     fp.write(kernel_str)
 
     ## write output
@@ -139,6 +141,10 @@ if __name__=='__main__':
         key ^= (item + (2**(args.input_bits - 1)) + i)
         i += 1
     fp.write('const int key_ref = {};\n'.format(key))
+
+    ## config whether use xilinx DSP algorithm
+    fp.write('const bool xilinx_dsp = {};\n'.format(int(args.xilinx)))
+
     fp.close()
 
     ## set the flag
@@ -148,7 +154,8 @@ if __name__=='__main__':
         EXTRA_FLAG += '\" -DQ15_Q15\"'
     elif ((args.input_bits == 4) and (args.weight_bits == 2)):
         EXTRA_FLAG += '\" -DQ3_Q1\"'
-        EXTRA_OBJECTS += '\" ./comp_q3.o ./comp_q1.o ./comp_q3_q1.o ./util.o\"'
+        EXTRA_OBJECTS += '\" ./comp_q3.o ./comp_q1.o ./comp_q3_q1.o ./comp_q3_q1_xilinx.o ./util.o\"'
+
     # run command
 
     subprocess.call('make EXTRA_FLAG={} EXTRA_OBJECTS={}'.format(

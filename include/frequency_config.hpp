@@ -39,5 +39,6 @@ int change_frequency(){
 
     SystemCoreClockUpdate();
     printf("\n\rCurrent clock: %lu\n\r", SystemCoreClock);
+    return 0;
 }
 

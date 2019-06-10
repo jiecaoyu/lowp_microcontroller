@@ -37,7 +37,51 @@ def InputData2Str(data, bits, step_i, bias_i):
         return input_str
     return None
 
-def KernelData2Str(data, bits, step_k, bias_k):
+def KernelData2Str(data, bits, step_k, bias_k, xilinx):
+    if xilinx:
+        if bits == 2:
+            output_channels = data.shape[0]
+            data += 2 ** (bits - 1)
+            data = numpy.moveaxis(data, 1, -1)
+            data = data.reshape(data.shape[0], -1)
+            kernel_str = 'const char kernel_v[{:.0f}] = '.format(
+                    numpy.ceil(float(data.shape[0]) / 4.) * data.shape[1]) + '{'
+            for i in range(int(numpy.ceil(data.shape[0] / 4.))):
+                data_tmp = data[i * 4: (i+1) * 4]
+                if (data_tmp.shape[0] < 4):
+                    data_tmp = numpy.concatenate(
+                            (data_tmp,
+                                numpy.zeros((4 - data_tmp.shape[0], data_tmp.shape[1]))),
+                                0)
+                for j in range(int(data_tmp.shape[1])):
+                    item = data_tmp[:, j]
+                    kernel_str += '0b' + \
+                            '{:02b}'.format(int(item[0])) + \
+                            '{:02b}'.format(int(item[1])) + \
+                            '{:02b}'.format(int(item[2])) + \
+                            '{:02b}'.format(int(item[3])) + \
+                            ','
+            kernel_str += '};\n'
+
+            kernel_str += 'const float step_k[{}] = '.format(output_channels) + '{'
+            for item in step_k:
+                kernel_str += '{}'.format(item) + ','
+            kernel_str += '};\n'
+
+            kernel_str += 'const float minv_k[{}] = '.format(output_channels) + '{'
+            for index in range(len(bias_k)):
+                kernel_str += '{}'.format(bias_k[index] \
+                        - (2.0 ** (bits - 1)) * step_k[index]) + ','
+            kernel_str += '};\n'
+
+            kernel_str += 'const float step_k_K[{}] = '.format(output_channels) + '{'
+            for index in range(len(bias_k)):
+                kernel_str += '{}'.format(step_k[index] * data[index].sum()) + ','
+            kernel_str += '};\n'
+
+            return kernel_str
+        else:
+            raise Exception ("Unsupport weight precision")
     if bits == 16:
         output_channels = data.shape[0]
         data = numpy.moveaxis(data, 1, -1)
