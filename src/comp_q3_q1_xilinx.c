@@ -244,63 +244,81 @@ void Conv2d_q3_q1_xilinx(
                 char* kernel_ptr_char = (char*) (pSrcB + (a >> 2) * cache_size);
                 uint32_t tmp_acc_0 = 0;
                 uint32_t tmp_acc_1 = 0;
-                size_t k = 0;
                 char kernel_index = 0;
                 uint32_t kernel = 0;
-                for (; k < cache_size - 4; k += 5) {
+                size_t cache_size_step = 5 * 128;
+                uint32_t* cache_ptr_0 = cache_0;
+                uint32_t* cache_ptr_1 = cache_1;
+                for (size_t cache_size_start = 0; cache_size_start < cache_size;
+                        cache_size_start += cache_size_step) {
+                    uint32_t tmp_dual_output_0[2] = {0,0};
+                    uint32_t tmp_dual_output_1[2] = {0,0};
+                    size_t k = 0;
+                    size_t cache_size_remain = cache_size - cache_size_start;
+                    cache_size_remain = (cache_size_remain < cache_size_step) ?
+                        cache_size_remain : cache_size_step;
+                    for (; k < cache_size_remain - 4; k += 5) {
+                        tmp_acc_0 = 0;
+                        tmp_acc_1 = 0;
+
+                        kernel_index = *(kernel_ptr_char++);
+                        kernel = klist2_sram[(int)kernel_index];
+                        tmp_acc_0 += kernel * cache_ptr_0[k + 0];
+                        tmp_acc_1 += kernel * cache_ptr_1[k + 0];
+
+                        kernel_index = *(kernel_ptr_char++);
+                        kernel = klist2_sram[(int)kernel_index];
+                        tmp_acc_0 += kernel * cache_ptr_0[k + 1];
+                        tmp_acc_1 += kernel * cache_ptr_1[k + 1];
+
+                        kernel_index = *(kernel_ptr_char++);
+                        kernel = klist2_sram[(int)kernel_index];
+                        tmp_acc_0 += kernel * cache_ptr_0[k + 2];
+                        tmp_acc_1 += kernel * cache_ptr_1[k + 2];
+
+                        kernel_index = *(kernel_ptr_char++);
+                        kernel = klist2_sram[(int)kernel_index];
+                        tmp_acc_0 += kernel * cache_ptr_0[k + 3];
+                        tmp_acc_1 += kernel * cache_ptr_1[k + 3];
+
+                        kernel_index = *(kernel_ptr_char++);
+                        kernel = klist2_sram[(int)kernel_index];
+                        tmp_acc_0 += kernel * cache_ptr_0[k + 4];
+                        tmp_acc_1 += kernel * cache_ptr_1[k + 4];
+
+                        tmp_dual_output_0[0] +=
+                            (tmp_acc_0 >> 8) & 0b111111110000000011111111;
+                        tmp_dual_output_0[1] +=
+                            (tmp_acc_0     ) & 0b111111110000000011111111;
+                        tmp_dual_output_1[0] +=
+                            (tmp_acc_1 >> 8) & 0b111111110000000011111111;
+                        tmp_dual_output_1[1] +=
+                            (tmp_acc_1     ) & 0b111111110000000011111111;
+                    }
                     tmp_acc_0 = 0;
                     tmp_acc_1 = 0;
+                    for (; k < cache_size_remain; k += 1) {
+                        kernel_index = *(kernel_ptr_char++);
+                        kernel = klist2_sram[(int)kernel_index];
+                        tmp_acc_0 += kernel * cache_ptr_0[k];
+                        tmp_acc_1 += kernel * cache_ptr_1[k];
+                    }
+                    tmp_dual_output_0[0] += (tmp_acc_0 >> 8) & 0b111111110000000011111111;
+                    tmp_dual_output_0[1] += (tmp_acc_0     ) & 0b111111110000000011111111;
+                    tmp_dual_output_1[0] += (tmp_acc_1 >> 8) & 0b111111110000000011111111;
+                    tmp_dual_output_1[1] += (tmp_acc_1     ) & 0b111111110000000011111111;
 
-                    kernel_index = *(kernel_ptr_char++);
-                    kernel = klist2_sram[(int)kernel_index];
-                    tmp_acc_0 += kernel * cache_0[k + 0];
-                    tmp_acc_1 += kernel * cache_1[k + 0];
-
-                    kernel_index = *(kernel_ptr_char++);
-                    kernel = klist2_sram[(int)kernel_index];
-                    tmp_acc_0 += kernel * cache_0[k + 1];
-                    tmp_acc_1 += kernel * cache_1[k + 1];
-
-                    kernel_index = *(kernel_ptr_char++);
-                    kernel = klist2_sram[(int)kernel_index];
-                    tmp_acc_0 += kernel * cache_0[k + 2];
-                    tmp_acc_1 += kernel * cache_1[k + 2];
-
-                    kernel_index = *(kernel_ptr_char++);
-                    kernel = klist2_sram[(int)kernel_index];
-                    tmp_acc_0 += kernel * cache_0[k + 3];
-                    tmp_acc_1 += kernel * cache_1[k + 3];
-
-                    kernel_index = *(kernel_ptr_char++);
-                    kernel = klist2_sram[(int)kernel_index];
-                    tmp_acc_0 += kernel * cache_0[k + 4];
-                    tmp_acc_1 += kernel * cache_1[k + 4];
-
-                    tmp_output_0[0] += (tmp_acc_0 >> 24);
-                    tmp_output_0[1] += (tmp_acc_0 >> 16) & 0b11111111;
-                    tmp_output_0[2] += (tmp_acc_0 >>  8) & 0b11111111;
-                    tmp_output_0[3] += (tmp_acc_0      ) & 0b11111111;
-                    tmp_output_1[0] += (tmp_acc_1 >> 24);
-                    tmp_output_1[1] += (tmp_acc_1 >> 16) & 0b11111111;
-                    tmp_output_1[2] += (tmp_acc_1 >>  8) & 0b11111111;
-                    tmp_output_1[3] += (tmp_acc_1      ) & 0b11111111;
+                    tmp_output_0[0] += (tmp_dual_output_0[0] >> 16) & 0b1111111111111111;
+                    tmp_output_0[1] += (tmp_dual_output_0[1] >> 16) & 0b1111111111111111;
+                    tmp_output_0[2] += (tmp_dual_output_0[0]      ) & 0b1111111111111111;
+                    tmp_output_0[3] += (tmp_dual_output_0[1]      ) & 0b1111111111111111;
+                    tmp_output_1[0] += (tmp_dual_output_1[0] >> 16) & 0b1111111111111111;
+                    tmp_output_1[1] += (tmp_dual_output_1[1] >> 16) & 0b1111111111111111;
+                    tmp_output_1[2] += (tmp_dual_output_1[0]      ) & 0b1111111111111111;
+                    tmp_output_1[3] += (tmp_dual_output_1[1]      ) & 0b1111111111111111;
+                    cache_ptr_0 += cache_size_step;
+                    cache_ptr_1 += cache_size_step;
                 }
-                tmp_acc_0 = 0;
-                tmp_acc_1 = 0;
-                for (; k < cache_size; k += 1) {
-                    kernel_index = *(kernel_ptr_char++);
-                    kernel = klist2_sram[(int)kernel_index];
-                    tmp_acc_0 += kernel * cache_0[k];
-                    tmp_acc_1 += kernel * cache_1[k];
-                }
-                tmp_output_0[0] += (tmp_acc_0 >> 24);
-                tmp_output_0[1] += (tmp_acc_0 >> 16) & 0b11111111;
-                tmp_output_0[2] += (tmp_acc_0 >>  8) & 0b11111111;
-                tmp_output_0[3] += (tmp_acc_0      ) & 0b11111111;
-                tmp_output_1[0] += (tmp_acc_1 >> 24);
-                tmp_output_1[1] += (tmp_acc_1 >> 16) & 0b11111111;
-                tmp_output_1[2] += (tmp_acc_1 >>  8) & 0b11111111;
-                tmp_output_1[3] += (tmp_acc_1      ) & 0b11111111;
                 for (size_t i = 0;
                         i < ((output_channels - a) > 4 ? 4 :
                             (output_channels - a)); ++i) {
@@ -418,47 +436,57 @@ void Conv2d_q3_q1_xilinx(
                 uint32_t tmp_output[4] = {0,0,0,0};
                 char* kernel_ptr_char = (char*) (pSrcB + (a >> 2) * cache_size);
                 uint32_t tmp_acc = 0;
-                size_t k = 0;
                 char kernel_index = 0;
                 uint32_t kernel = 0;
-                for (; k < cache_size - 4; k += 5) {
+                size_t cache_size_step = 5 * 128;
+                uint32_t* cache_ptr_0 = cache_0;
+                for (size_t cache_size_start = 0; cache_size_start < cache_size;
+                        cache_size_start += cache_size_step) {
+                    uint32_t tmp_dual_output[2] = {0,0};
+                    size_t k = 0;
+                    size_t cache_size_remain = cache_size - cache_size_start;
+                    cache_size_remain = (cache_size_remain < cache_size_step) ?
+                        cache_size_remain : cache_size_step;
+                    for (; k < cache_size_remain - 4; k += 5) {
+                        tmp_acc = 0;
+
+                        kernel_index = *(kernel_ptr_char++);
+                        kernel = klist2_sram[(int)kernel_index];
+                        tmp_acc += kernel * cache_ptr_0[k + 0];
+
+                        kernel_index = *(kernel_ptr_char++);
+                        kernel = klist2_sram[(int)kernel_index];
+                        tmp_acc += kernel * cache_ptr_0[k + 1];
+
+                        kernel_index = *(kernel_ptr_char++);
+                        kernel = klist2_sram[(int)kernel_index];
+                        tmp_acc += kernel * cache_ptr_0[k + 2];
+
+                        kernel_index = *(kernel_ptr_char++);
+                        kernel = klist2_sram[(int)kernel_index];
+                        tmp_acc += kernel * cache_ptr_0[k + 3];
+
+                        kernel_index = *(kernel_ptr_char++);
+                        kernel = klist2_sram[(int)kernel_index];
+                        tmp_acc += kernel * cache_ptr_0[k + 4];
+
+                        tmp_dual_output[0] += (tmp_acc >> 8) & 0b111111110000000011111111;
+                        tmp_dual_output[1] += (tmp_acc     ) & 0b111111110000000011111111;
+                    }
                     tmp_acc = 0;
-
-                    kernel_index = *(kernel_ptr_char++);
-                    kernel = klist2_sram[(int)kernel_index];
-                    tmp_acc += kernel * cache_0[k + 0];
-
-                    kernel_index = *(kernel_ptr_char++);
-                    kernel = klist2_sram[(int)kernel_index];
-                    tmp_acc += kernel * cache_0[k + 1];
-
-                    kernel_index = *(kernel_ptr_char++);
-                    kernel = klist2_sram[(int)kernel_index];
-                    tmp_acc += kernel * cache_0[k + 2];
-
-                    kernel_index = *(kernel_ptr_char++);
-                    kernel = klist2_sram[(int)kernel_index];
-                    tmp_acc += kernel * cache_0[k + 3];
-
-                    kernel_index = *(kernel_ptr_char++);
-                    kernel = klist2_sram[(int)kernel_index];
-                    tmp_acc += kernel * cache_0[k + 4];
-
-                    tmp_output[0] += (tmp_acc >> 24);
-                    tmp_output[1] += (tmp_acc >> 16) & 0b11111111;
-                    tmp_output[2] += (tmp_acc >>  8) & 0b11111111;
-                    tmp_output[3] += (tmp_acc      ) & 0b11111111;
+                    for (; k < cache_size_remain; k += 1) {
+                        kernel_index = *(kernel_ptr_char++);
+                        kernel = klist2_sram[(int)kernel_index];
+                        tmp_acc += kernel * cache_ptr_0[k];
+                    }
+                    tmp_dual_output[0] += (tmp_acc >> 8) & 0b111111110000000011111111;
+                    tmp_dual_output[1] += (tmp_acc     ) & 0b111111110000000011111111;
+                    tmp_output[0] += (tmp_dual_output[0] >> 16) & 0b1111111111111111;
+                    tmp_output[1] += (tmp_dual_output[1] >> 16) & 0b1111111111111111;
+                    tmp_output[2] += (tmp_dual_output[0]      ) & 0b1111111111111111;
+                    tmp_output[3] += (tmp_dual_output[1]      ) & 0b1111111111111111;
+                    cache_ptr_0 += cache_size_step;
                 }
-                tmp_acc = 0;
-                for (; k < cache_size; k += 1) {
-                    kernel_index = *(kernel_ptr_char++);
-                    kernel = klist2_sram[(int)kernel_index];
-                    tmp_acc += kernel * cache_0[k];
-                }
-                tmp_output[0] += (tmp_acc >> 24);
-                tmp_output[1] += (tmp_acc >> 16) & 0b11111111;
-                tmp_output[2] += (tmp_acc >>  8) & 0b11111111;
-                tmp_output[3] += (tmp_acc      ) & 0b11111111;
                 for (size_t i = 0;
                         i < ((output_channels - a) > 4 ? 4 :
                             (output_channels - a)); ++i) {
